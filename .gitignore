@@ -26,3 +26,6 @@ Thumbs.db
 
 # Netlify CLI artifact (edge functions are not used)
 deno.lock
+
+# your working copy of the real data stays local
+Parcel_Mapping_Main.xlsx
