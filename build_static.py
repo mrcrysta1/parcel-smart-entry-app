@@ -80,6 +80,7 @@ def main():
     write(WEB / 'sheet.html', render(app, 'sheet.html', ui_config=shared_ui))
     write(WEB / 'style.css', style)
     write(WEB / 'app.js', app_js)
+    write(WEB / 'auth.js', (ROOT / 'app' / 'static' / 'auth.js').read_text(encoding='utf-8'))
     write(WEB / 'shared.js', (ROOT / 'app' / 'static' / 'shared.js').read_text(encoding='utf-8'))
     write(WEB / 'sheet.js', (ROOT / 'app' / 'static' / 'sheet.js').read_text(encoding='utf-8'))
 
@@ -87,7 +88,7 @@ def main():
         ('docs (offline, GitHub Pages)', DOCS,
          ['index.html', 'schema.js', 'style.css', 'app.js', 'engine.js']),
         ('web  (shared, Netlify)', WEB,
-         ['index.html', 'sheet.html', 'style.css', 'app.js', 'shared.js', 'sheet.js']),
+         ['index.html', 'sheet.html', 'style.css', 'auth.js', 'app.js', 'shared.js', 'sheet.js']),
     ]:
         print(label)
         for n in names:

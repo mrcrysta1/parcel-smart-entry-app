@@ -86,6 +86,10 @@ var engine = function () { return window.ParcelEngine; };
  * server can record who changed what. */
 async function rest(method, path, body) {
   var init = { method: method, headers: { 'x-parcel-user': state.user || 'Someone' } };
+  // PARCEL_AUTH only exists in the shared build, and only matters when the
+  // server has a team password set.
+  var tok = (typeof PARCEL_AUTH !== 'undefined') ? PARCEL_AUTH.token() : '';
+  if (tok) init.headers['x-parcel-token'] = tok;
   if (body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(Object.assign({ by: state.user }, body));

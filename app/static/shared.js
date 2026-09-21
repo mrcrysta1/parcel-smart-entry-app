@@ -29,6 +29,25 @@ function ago(iso) {
 }
 
 /* ------------------------------------------------------------- who am I */
+/* A token the server rejects means the password changed or the session
+ * expired: drop it and ask again rather than leaving the user stuck. */
+function handleAuthFailure(err) {
+  if (!err || err.status !== 401) return false;
+  PARCEL_AUTH.clear();
+  showPasswordField(true);
+  askWho();
+  setStatus('Sign in again');
+  toast(err.message || 'Please enter the team password.', 'warn');
+  return true;
+}
+
+function showPasswordField(on) {
+  var wrap = $('gatePassWrap');
+  if (wrap) wrap.classList.toggle('hidden', !on);
+  var input = $('gatePass');
+  if (input) input.required = !!on;
+}
+
 function setUser(name) {
   state.user = String(name || '').trim().slice(0, 40);
   try { localStorage.setItem(USER_KEY, state.user); } catch (e) {}
@@ -72,6 +91,7 @@ async function refreshSheetList() {
     var d = await api.listSheets();
     renderSheetList(d.sheets || []);
   } catch (e) {
+    if (handleAuthFailure(e)) return;
     var el = $('sheetList');
     if (el) el.innerHTML = '<div class="empty">Could not reach the server: ' + esc(e.message) + '</div>';
   }
@@ -118,6 +138,7 @@ async function openSheet(id) {
     refreshSheetList();
     setStatus(state.records.length + ' record(s) loaded');
   } catch (e) {
+    if (handleAuthFailure(e)) return;
     setStatus('Could not open');
     toast(e.message, 'error');
   }
@@ -248,19 +269,62 @@ function wireConflict() {
 }
 
 /* ------------------------------------------------------------------ init */
-function initShared() {
+async function initShared() {
   if (!SHARED) return;
 
   var saved = '';
   try { saved = localStorage.getItem(USER_KEY) || ''; } catch (e) {}
-  if (saved) setUser(saved); else askWho();
+
+  /* Someone coming back already has a name and a token, so start straight
+   * away rather than blocking the whole page on another round trip. If that
+   * token has since been revoked the first API call returns 401 and
+   * handleAuthFailure() brings this card back. Only a genuinely new visitor
+   * waits, and only to find out whether a password box is needed. */
+  // Instant when we have a token, or when we already know no password is in
+  // force. Only a genuinely first-time visitor waits for the check.
+  var known = PARCEL_AUTH.knownRequired();
+  var returning = !!saved && (PARCEL_AUTH.hasToken() || known === false);
+  var signedIn = false;
+  if (returning) {
+    setUser(saved);
+    PARCEL_AUTH.check();            // warm the answer for later, do not await
+    signedIn = true;
+  } else {
+    var needsPassword = await PARCEL_AUTH.check();
+    showPasswordField(needsPassword);
+    // A remembered name on an open deployment is enough to get going; only a
+    // password-protected one still needs the card.
+    if (saved && !needsPassword) { setUser(saved); signedIn = true; }
+    else askWho();
+  }
 
   var form = $('gateForm');
   if (form) {
-    form.addEventListener('submit', function (e) {
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
       var v = $('gateName').value.trim();
       if (!v) return;
+      var btn = form.querySelector('button[type="submit"]');
+      // The check is memoised, so this is instant once it has answered.
+      await PARCEL_AUTH.check();
+      showPasswordField(PARCEL_AUTH.isRequired() && !PARCEL_AUTH.hasToken());
+      if (PARCEL_AUTH.isRequired() && !PARCEL_AUTH.hasToken()) {
+        var pw = $('gatePass').value;
+        if (!pw) { $('gatePass').focus(); return; }
+        btn.disabled = true;
+        $('gateError').textContent = '';
+        try {
+          await PARCEL_AUTH.login(pw);
+        } catch (ex) {
+          $('gateError').textContent = ex.message;
+          $('gatePass').value = '';
+          $('gatePass').focus();
+          btn.disabled = false;
+          return;
+        }
+        btn.disabled = false;
+        $('gatePass').value = '';
+      }
       setUser(v);
       boot();
     });
@@ -281,7 +345,7 @@ function initShared() {
     if (!document.hidden) pollOnce();
   });
 
-  if (saved) boot();
+  if (signedIn) boot();
 }
 
 async function boot() {

@@ -15,6 +15,11 @@
     <p class="muted">Your name is shown next to the records you change.</p>
     <label for="gateName">Your name</label>
     <input id="gateName" autocomplete="name" placeholder="e.g. Ali" maxlength="40" required>
+    <div id="gatePassWrap" class="hidden">
+      <label for="gatePass">Team password</label>
+      <input id="gatePass" type="password" autocomplete="current-password" placeholder="Shared password">
+    </div>
+    <p id="gateError" class="gate-error"></p>
     <button class="primary" type="submit">Continue</button>
   </form>
 </div>
@@ -52,6 +57,7 @@
 
 <div id="toast" class="toast hidden"></div>
 <script>window.PARCEL_UI = {{ ui_config | tojson }};</script>
+<script src="auth.js"></script>
 <script src="sheet.js"></script>
 </body>
 </html>

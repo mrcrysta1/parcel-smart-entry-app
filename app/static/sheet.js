@@ -52,6 +52,8 @@ function ago(iso) {
 /* -------------------------------------------------------------------- api */
 async function rest(method, path, body) {
   var init = { method: method, headers: { 'x-parcel-user': state.user || 'Someone' } };
+  var tok = typeof PARCEL_AUTH !== 'undefined' ? PARCEL_AUTH.token() : '';
+  if (tok) init.headers['x-parcel-token'] = tok;
   if (body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(Object.assign({ by: state.user }, body));
@@ -299,6 +301,14 @@ async function openSheet(id) {
     if (state.poll) clearInterval(state.poll);
     state.poll = setInterval(pollOnce, POLL_MS);
   } catch (e) {
+    if (e && e.status === 401) {
+      PARCEL_AUTH.clear();
+      showPasswordField(true);
+      $('gate').classList.remove('hidden');
+      $('gateError').textContent = e.message;
+      setStatus('Sign in again');
+      return;
+    }
     setStatus('Could not load');
     $('sheetName').textContent = 'Could not load this file';
     $('gridEmpty').textContent = e.message;
@@ -328,15 +338,46 @@ async function addRecord() {
   }
 }
 
-function init() {
+function showPasswordField(on) {
+  var wrap = $('gatePassWrap');
+  if (wrap) wrap.classList.toggle('hidden', !on);
+}
+
+async function init() {
   var saved = '';
   try { saved = localStorage.getItem(USER_KEY) || ''; } catch (e) {}
-  if (saved) setUser(saved);
+  // A returning user starts immediately; a revoked token surfaces as a 401.
+  var known = PARCEL_AUTH.knownRequired();
+  var returning = !!saved && (PARCEL_AUTH.hasToken() || known === false);
+  if (returning) {
+    setUser(saved);
+    PARCEL_AUTH.check();
+  } else {
+    var needsPassword = await PARCEL_AUTH.check();
+    showPasswordField(needsPassword);
+    if (saved && !needsPassword) setUser(saved);
+  }
 
-  $('gateForm').addEventListener('submit', function (e) {
+  $('gateForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     var v = $('gateName').value.trim();
     if (!v) return;
+    await PARCEL_AUTH.check();
+    showPasswordField(PARCEL_AUTH.isRequired() && !PARCEL_AUTH.hasToken());
+    if (PARCEL_AUTH.isRequired() && !PARCEL_AUTH.hasToken()) {
+      var pw = $('gatePass').value;
+      if (!pw) { $('gatePass').focus(); return; }
+      $('gateError').textContent = '';
+      try {
+        await PARCEL_AUTH.login(pw);
+      } catch (ex) {
+        $('gateError').textContent = ex.message;
+        $('gatePass').value = '';
+        $('gatePass').focus();
+        return;
+      }
+      $('gatePass').value = '';
+    }
     setUser(v);
     start();
   });
@@ -379,7 +420,8 @@ function init() {
 
   document.addEventListener('visibilitychange', function () { if (!document.hidden) pollOnce(); });
 
-  if (saved) start(); else { $('gate').classList.remove('hidden'); $('gateName').focus(); }
+  if (returning || (saved && !PARCEL_AUTH.isRequired())) start();
+  else { $('gate').classList.remove('hidden'); $('gateName').focus(); }
 }
 
 function start() {

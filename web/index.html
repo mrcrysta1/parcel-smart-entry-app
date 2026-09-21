@@ -27,6 +27,11 @@
       <p class="muted">Your name is shown next to the records you change, so the team can see who did what.</p>
       <label for="gateName">Your name</label>
       <input id="gateName" autocomplete="name" placeholder="e.g. Ali" maxlength="40" required>
+      <div id="gatePassWrap" class="hidden">
+        <label for="gatePass">Team password</label>
+        <input id="gatePass" type="password" autocomplete="current-password" placeholder="Shared password">
+      </div>
+      <p id="gateError" class="gate-error"></p>
       <button class="primary" type="submit">Continue</button>
     </form>
   </div>
@@ -152,13 +157,15 @@
       <div><b>Tap to edit</b><span>Selecting a result loads the whole row into the form; Save writes it back to that same row.</span></div>
       <div><b>New records</b><span>If no match exists, Save appends a new row and blocks duplicate P/S numbers.</span></div>
       <div><b>Excel ready</b><span>Every changed or added row is highlighted yellow before download.</span></div>
-      <div><b>Runs in your browser</b><span>Your workbook is never uploaded &mdash; all reading and writing happens on this device.</span></div>
+      <div><b>Everyone together</b><span>The file lives on the server; other people's changes appear here within a couple of seconds.</span></div>
+      <div><b>Nothing lost</b><span>If two people edit the same parcel you are shown both versions and choose which to keep.</span></div>
     </div>
   </section>
 
 </div>
 <div id="toast" class="toast hidden"></div>
-<script>window.PARCEL_UI = {"choice_fields": {"comment": ["Add", "Delete"]}, "fields": ["parcel", "house_code", "latitude", "longitude", "property_type", "name", "cnic", "comment", "block_id", "first_name", "username", "designation"], "form_order": ["parcel", "name", "cnic", "house_code", "property_type", "latitude", "longitude", "comment", "block_id", "first_name", "username", "designation"], "labels": {"block_id": "Block ID", "cnic": "CNIC", "comment": "Comment", "designation": "Designation", "first_name": "First Name", "house_code": "H/S Code / House Code", "latitude": "Latitude", "longitude": "Longitude", "name": "Name", "parcel": "P/S / Parcel Number", "property_type": "Property Type", "username": "Username"}, "max_results": 50, "mode": "shared", "option_fields": ["block_id", "first_name", "username", "designation"], "prefix_fields": ["house_code"], "search_fields": ["parcel", "cnic", "house_code", "name"], "sticky_fields": ["block_id", "first_name", "username", "designation"]};</script><script src="app.js"></script>
+<script>window.PARCEL_UI = {"choice_fields": {"comment": ["Add", "Delete"]}, "fields": ["parcel", "house_code", "latitude", "longitude", "property_type", "name", "cnic", "comment", "block_id", "first_name", "username", "designation"], "form_order": ["parcel", "name", "cnic", "house_code", "property_type", "latitude", "longitude", "comment", "block_id", "first_name", "username", "designation"], "labels": {"block_id": "Block ID", "cnic": "CNIC", "comment": "Comment", "designation": "Designation", "first_name": "First Name", "house_code": "H/S Code / House Code", "latitude": "Latitude", "longitude": "Longitude", "name": "Name", "parcel": "P/S / Parcel Number", "property_type": "Property Type", "username": "Username"}, "max_results": 50, "mode": "shared", "option_fields": ["block_id", "first_name", "username", "designation"], "prefix_fields": ["house_code"], "search_fields": ["parcel", "cnic", "house_code", "name"], "sticky_fields": ["block_id", "first_name", "username", "designation"]};</script><script src="auth.js"></script>
+<script src="app.js"></script>
 <script src="shared.js"></script>
 </body>
 </html>

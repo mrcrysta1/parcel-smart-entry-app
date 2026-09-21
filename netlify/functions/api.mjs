@@ -20,6 +20,7 @@
  * this needs to feel live.
  */
 import { getStore } from '@netlify/blobs';
+import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import createEngine from '../../shared/engine-core.cjs';
 import schema from '../../shared/schema.json';
@@ -61,6 +62,64 @@ function newId() {
 function who(body, req) {
   const name = String((body && body.by) || req.headers.get('x-parcel-user') || '').trim();
   return name.slice(0, 40) || 'Someone';
+}
+
+/* ---------------------------------------------------------------- access
+ *
+ * Optional shared team password, switched on purely by setting the
+ * TEAM_PASSWORD environment variable in Netlify. With it unset the app is
+ * open exactly as before, so turning this on is a deliberate act and turning
+ * it off again is a one-click revert.
+ *
+ * The password is exchanged once for a signed token that the browser keeps;
+ * the password itself is never stored client-side and never travels again
+ * after sign-in. The token is an expiry plus an HMAC of that expiry keyed by
+ * the password, so no server-side session store is needed - which matters on
+ * serverless, where there is nowhere to keep one.
+ */
+const TEAM_PASSWORD = String(process.env.TEAM_PASSWORD || process.env.PARCEL_PASSWORD || '').trim();
+const TOKEN_DAYS = 30;
+const authRequired = () => TEAM_PASSWORD.length > 0;
+
+function sign(expiry) {
+  return createHmac('sha256', TEAM_PASSWORD).update(String(expiry)).digest('hex');
+}
+
+function issueToken() {
+  const exp = Date.now() + TOKEN_DAYS * 86400000;
+  return { token: exp + '.' + sign(exp), expiresAt: new Date(exp).toISOString() };
+}
+
+function validToken(raw) {
+  if (typeof raw !== 'string') return false;
+  const dot = raw.indexOf('.');
+  if (dot < 1) return false;
+  const exp = Number(raw.slice(0, dot));
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+  let given;
+  try { given = Buffer.from(raw.slice(dot + 1), 'hex'); } catch (e) { return false; }
+  const want = Buffer.from(sign(exp), 'hex');
+  return given.length === want.length && timingSafeEqual(given, want);
+}
+
+// Compare fixed-length digests so the check cannot be timed character by character.
+function passwordMatches(given) {
+  const a = createHash('sha256').update(String(given == null ? '' : given)).digest();
+  const b = createHash('sha256').update(TEAM_PASSWORD).digest();
+  return timingSafeEqual(a, b);
+}
+
+async function handleAuth(req, method) {
+  if (method === 'GET') return json({ required: authRequired() });
+  if (method !== 'POST') throw fail(405, 'Method not allowed.');
+  if (!authRequired()) return json(issueToken());
+  const body = await req.json().catch(() => ({}));
+  if (!passwordMatches(body.password)) {
+    // Slow guessing down a little; there is no shared store to rate-limit with.
+    await sleep(400 + Math.random() * 400);
+    throw fail(401, 'That team password is not right.', { authRequired: true });
+  }
+  return json(issueToken());
 }
 
 /* ------------------------------------------------------------- storage */
@@ -404,6 +463,13 @@ export default async (req) => {
   const method = req.method.toUpperCase();
 
   try {
+    if (parts[0] === 'auth' && parts.length === 1) return await handleAuth(req, method);
+
+    // Everything below needs a valid token, but only when a password is set.
+    if (authRequired() && !validToken(req.headers.get('x-parcel-token'))) {
+      throw fail(401, 'Please enter the team password.', { authRequired: true });
+    }
+
     if (parts[0] !== 'sheets') throw fail(404, 'Unknown endpoint.');
 
     if (parts.length === 1) {

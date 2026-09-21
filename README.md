@@ -79,9 +79,23 @@ connection string.
    `netlify/functions`. Leave the defaults and press **Deploy**.
 4. Open the URL it gives you.
 
-There is no login on the app itself: anyone with the URL can read and change
-every record. Keep the URL within the team, or ask and I will add a shared
-password.
+### Turning on the team password
+
+Off by default: with no environment variable set, anyone with the URL can read
+and change every record. To lock it down, in Netlify go to **Site configuration
+-> Environment variables -> Add**:
+
+    Key:    TEAM_PASSWORD
+    Value:  whatever you want the team to type
+
+Redeploy (or just **Trigger deploy -> Clear cache and deploy site**). From then
+on the sign-in card asks for the password alongside the name. To turn it off
+again, delete the variable and redeploy.
+
+The password is exchanged once for a signed token that lasts 30 days; the
+password itself is never stored in the browser and never sent again. Change the
+variable and every existing token stops working, which is how you remove
+someone's access.
 
 Free tier notes: functions sleep when idle (the first request after a quiet
 spell takes a few seconds) and Netlify Blobs storage persists across deploys.
@@ -163,7 +177,9 @@ api/index.py           Vercel entry point for the single-user Flask app
 | `DELETE /api/sheets/:id` | Remove a shared file. |
 
 ## Limitations
-- **No login.** Anyone with the URL can edit. Ask if you want a password.
+- **No per-person accounts.** The team password is one shared secret, so it
+  cannot tell you who signed in, only who made each edit (by the name they
+  typed). Change `TEAM_PASSWORD` to revoke access for everyone at once.
 - `.xlsm` macros are dropped on save in both builds; use the local Flask app to
   keep them.
 - The offline build's edits live in the tab until you press Download Excel.

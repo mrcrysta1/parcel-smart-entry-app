@@ -191,3 +191,10 @@ p{margin:0}
   .grid-tools{width:100%}
   .grid-wrap{max-height:calc(100vh - 220px)}
 }
+
+/* The password wrapper is a plain div, so its label and input would fall back
+   to inline and sit side by side; make it a column like the rest of the card.
+   :not(.hidden) keeps `hidden` winning without an id-specificity fight. */
+.gate-card > div:not(.hidden){display:flex;flex-direction:column;gap:6px}
+.gate-card .hidden{display:none}
+.gate-error{color:var(--danger);font-size:13px;font-weight:600;min-height:18px;margin:0}
