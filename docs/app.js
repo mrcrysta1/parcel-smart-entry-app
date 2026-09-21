@@ -460,23 +460,27 @@ function upsertCache(rec) {
 }
 
 /* -------------------------------------------------------------- handlers */
-$('file').addEventListener('change', async function (e) {
-  var f = e.target.files[0];
-  if (!f) return;
+/* One path for "a workbook arrived", whether the user picked it from disk or
+ * the page fetched the copy that ships with the site. */
+async function useWorkbook(b64, fileName, note) {
   setStatus('Reading file…');
   try {
-    var b64 = toBase64(await f.arrayBuffer());
-    var d = await api.load(b64, f.name.replace(/\.(xlsx|xlsm)$/i, ''));
+    var d = await api.load(b64, fileName.replace(/\.(xlsx|xlsm)$/i, ''));
     state.workbook = SHARED ? '' : b64;
     if (SHARED) { adoptSheet(d); }
     state.records = d.records || [];
     state.macro = !!d.macro;
-    state.fileName = f.name;
+    state.fileName = fileName;
     state.prefixes = d.prefixes || {};
     applyFieldOptions(d.options);
-    $('fileInfo').textContent = f.name + ' · ' + state.records.length +
+    $('fileInfo').textContent = fileName + ' · ' + state.records.length +
       ' record(s) · header row ' + d.header_row;
     if (SHARED) { refreshSheetList(); }
+    var noteEl = $('demoNote');
+    if (noteEl) {
+      noteEl.textContent = note || '';
+      noteEl.classList.toggle('hidden', !note);
+    }
     $('search').disabled = false;
     $('search').value = '';
     newRecord();
@@ -495,10 +499,39 @@ $('file').addEventListener('change', async function (e) {
     $('fileInfo').textContent = 'Could not read that file.';
     setStatus('Load failed');
     toast(err.message, 'error');
+  }
+}
+
+$('file').addEventListener('change', async function (e) {
+  var f = e.target.files[0];
+  if (!f) return;
+  try {
+    await useWorkbook(toBase64(await f.arrayBuffer()), f.name, '');
   } finally {
     e.target.value = '';
   }
 });
+
+/* The copy that ships with the site, so nobody has to hunt for a file just to
+ * start work. Only rendered when a sample was bundled at build time. */
+var sampleBtn = $('sampleBtn');
+if (sampleBtn) {
+  sampleBtn.addEventListener('click', async function () {
+    if (state.dirty && !window.confirm('Discard unsaved changes and open the team file?')) return;
+    sampleBtn.disabled = true;
+    setStatus('Opening the team file…');
+    try {
+      var res = await fetch(UI.sample_file, { cache: 'no-cache' });
+      if (!res.ok) throw new Error('Could not download the team file (' + res.status + ').');
+      await useWorkbook(toBase64(await res.arrayBuffer()), UI.sample_file, UI.sample_note || '');
+    } catch (e) {
+      setStatus('Could not open');
+      toast(e.message, 'error');
+    } finally {
+      sampleBtn.disabled = false;
+    }
+  });
+}
 
 $('search').addEventListener('input', function () {
   clearTimeout(state.timer);

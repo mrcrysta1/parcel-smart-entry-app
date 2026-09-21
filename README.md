@@ -18,6 +18,17 @@ It comes in two builds from one codebase:
 Offline link (single user, works in the field with no signal):
 **https://mrcrysta1.github.io/parcel-smart-entry-app/**
 
+Open it and press **Open the team file** - a full 865-row proforma loads with no
+upload, so you can try searching, editing and downloading straight away.
+
+> That bundled copy is **demo data**. It keeps the real file's shape - every
+> parcel number, house code, property type, row count and the header on row 3 -
+> but every name and CNIC is invented and every coordinate is blunted to about
+> a kilometre. The site is public, so no real person's details are on it.
+> Regenerate it from any workbook with:
+>
+>     python tools/make_demo_workbook.py "your-file.xlsx" docs/sample-parcel-mapping.xlsx
+
 The shared build is ready to deploy but **not yet live** — it needs a Netlify
 account, which only you can create. See *Deploying the shared version* below.
 
@@ -175,6 +186,29 @@ api/index.py           Vercel entry point for the single-user Flask app
 | `PUT /api/sheets/:id/records/:row` | Update a record; 409 + both versions on a conflict. |
 | `GET /api/sheets/:id/export` | Rebuild and download the .xlsx. |
 | `DELETE /api/sheets/:id` | Remove a shared file. |
+
+## Publishing data safely
+
+`tools/make_demo_workbook.py` exists because a survey workbook carries real
+names, CNICs and the GPS position of people's homes, and the GitHub Pages site
+is public. It replaces names and CNICs, blunts coordinates, and clears the
+places a value hides after its cell is overwritten:
+
+- **Filter values.** A column filter stores the exact values it was filtering
+  on in the sheet XML. A real CNIC survived there long after its cell was
+  replaced.
+- **Document properties**, cell notes, headers/footers, defined names, and any
+  sheet after the first.
+
+Coordinates appear in two encodings - `34.7712` and `302126607` (meaning
+30.2126607). Only the first is helped by rounding; the integer form looks
+already-rounded to a naive check and sailed through the first attempt at full
+centimetre precision. Both are handled now.
+
+None of this is obvious by eye, which is why the check is a script and not a
+glance: it diffs the demo against its source and fails on any surviving name,
+CNIC or precise coordinate, scanning every part of the .xlsx rather than just
+the visible cells.
 
 ## Limitations
 - **No per-person accounts.** The team password is one shared secret, so it

@@ -24,9 +24,13 @@
     <div class="upload-copy">
       <h2>1. Load your file</h2>
       <p class="muted" id="fileInfo">The app detects the standard parcel-mapping columns automatically.</p>
+      <p id="demoNote" class="demo-note hidden"></p>
     </div>
-    <label class="filebox"><input id="file" type="file" accept=".xlsx,.xlsm"><span>Choose Excel file</span></label>
-    <button id="newBtn" class="ghost" type="button">Start new file</button>
+    <div class="upload-actions">
+      <label class="filebox"><input id="file" type="file" accept=".xlsx,.xlsm"><span>Choose Excel file</span></label>
+      <button id="sampleBtn" class="ghost" type="button">Open the team file</button>
+      <button id="newBtn" class="ghost" type="button">Start new file</button>
+    </div>
   </section>
 
   <section class="grid">
@@ -133,7 +137,7 @@
 
 </div>
 <div id="toast" class="toast hidden"></div>
-<script>window.PARCEL_UI = {"choice_fields": {"comment": ["Add", "Delete"]}, "fields": ["parcel", "house_code", "latitude", "longitude", "property_type", "name", "cnic", "comment", "block_id", "first_name", "username", "designation"], "form_order": ["parcel", "name", "cnic", "house_code", "property_type", "latitude", "longitude", "comment", "block_id", "first_name", "username", "designation"], "labels": {"block_id": "Block ID", "cnic": "CNIC", "comment": "Comment", "designation": "Designation", "first_name": "First Name", "house_code": "H/S Code / House Code", "latitude": "Latitude", "longitude": "Longitude", "name": "Name", "parcel": "P/S / Parcel Number", "property_type": "Property Type", "username": "Username"}, "max_results": 50, "mode": "local", "option_fields": ["block_id", "first_name", "username", "designation"], "prefix_fields": ["house_code"], "search_fields": ["parcel", "cnic", "house_code", "name"], "sticky_fields": ["block_id", "first_name", "username", "designation"]};</script><script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script>window.PARCEL_UI = {"choice_fields": {"comment": ["Add", "Delete"]}, "fields": ["parcel", "house_code", "latitude", "longitude", "property_type", "name", "cnic", "comment", "block_id", "first_name", "username", "designation"], "form_order": ["parcel", "name", "cnic", "house_code", "property_type", "latitude", "longitude", "comment", "block_id", "first_name", "username", "designation"], "labels": {"block_id": "Block ID", "cnic": "CNIC", "comment": "Comment", "designation": "Designation", "first_name": "First Name", "house_code": "H/S Code / House Code", "latitude": "Latitude", "longitude": "Longitude", "name": "Name", "parcel": "P/S / Parcel Number", "property_type": "Property Type", "username": "Username"}, "max_results": 50, "mode": "local", "option_fields": ["block_id", "first_name", "username", "designation"], "prefix_fields": ["house_code"], "sample_file": "sample-parcel-mapping.xlsx", "sample_note": "Demo data \u2014 every name and CNIC in this file is made up. Edit freely; your changes stay in this browser until you press Download Excel.", "search_fields": ["parcel", "cnic", "house_code", "name"], "sticky_fields": ["block_id", "first_name", "username", "designation"]};</script><script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="schema.js"></script>
 <script src="engine.js"></script>
 <script src="app.js"></script>

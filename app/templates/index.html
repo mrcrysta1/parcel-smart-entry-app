@@ -59,9 +59,17 @@
     <div class="upload-copy">
       <h2>1. Load your file</h2>
       <p class="muted" id="fileInfo">The app detects the standard parcel-mapping columns automatically.</p>
+      {%- if sample_file %}
+      <p id="demoNote" class="demo-note hidden"></p>
+      {%- endif %}
     </div>
-    <label class="filebox"><input id="file" type="file" accept=".xlsx,.xlsm"><span>Choose Excel file</span></label>
-    <button id="newBtn" class="ghost" type="button">Start new file</button>
+    <div class="upload-actions">
+      <label class="filebox"><input id="file" type="file" accept=".xlsx,.xlsm"><span>Choose Excel file</span></label>
+      {%- if sample_file %}
+      <button id="sampleBtn" class="ghost" type="button">Open the team file</button>
+      {%- endif %}
+      <button id="newBtn" class="ghost" type="button">Start new file</button>
+    </div>
   </section>
   {%- endif %}
 

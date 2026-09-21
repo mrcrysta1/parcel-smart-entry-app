@@ -60,11 +60,20 @@ def main():
     base = dict(fields=FORM_ORDER, labels=LABELS, required=REQUIRED_FIELDS,
                 wide=WIDE_FIELDS, property_types=PROPERTY_TYPES, choices=CHOICE_FIELDS)
 
+    # A de-identified workbook committed under docs/ lets the offline site open
+    # a real-shaped file in one click. Made by tools/make_demo_workbook.py.
+    sample = DOCS / 'sample-parcel-mapping.xlsx'
+    sample_name = sample.name if sample.exists() else ''
+    sample_note = 'Demo data — every name and CNIC in this file is made up. Edit freely; your changes stay in this browser until you press Download Excel.'
+
     # ---------------------------------------------------- docs/  (offline)
     DOCS.mkdir(exist_ok=True)
     write(DOCS / 'index.html', render(
         app, 'index.html', static_build=True, shared_build=False,
-        ui_config=dict(UI_CONFIG, mode='local'), **base))
+        sample_file=sample_name,
+        ui_config=dict(UI_CONFIG, mode='local',
+                       sample_file=sample_name, sample_note=sample_note),
+        **base))
     write(DOCS / 'schema.js', schema_js)
     write(DOCS / 'style.css', style)
     write(DOCS / 'app.js', app_js)
@@ -76,7 +85,7 @@ def main():
     shared_ui = dict(UI_CONFIG, mode='shared')
     write(WEB / 'index.html', render(
         app, 'index.html', static_build=True, shared_build=True,
-        ui_config=shared_ui, **base))
+        sample_file='', ui_config=shared_ui, **base))
     write(WEB / 'sheet.html', render(app, 'sheet.html', ui_config=shared_ui))
     write(WEB / 'style.css', style)
     write(WEB / 'app.js', app_js)
