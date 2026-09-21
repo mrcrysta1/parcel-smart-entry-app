@@ -1,0 +1,14 @@
+{
+  "name": "parcel-smart-entry",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared multi-user Excel data entry for the parcel mapping proforma",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.0",
+    "exceljs": "^4.4.0"
+  }
+}

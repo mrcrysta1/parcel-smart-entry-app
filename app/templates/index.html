@@ -16,9 +16,40 @@
       <h1>Smart Data Entry</h1>
       <p class="muted">Upload your existing Excel or start a fresh file. Search by P/S, CNIC, H/S Code or Name, then tap a result to edit it.</p>
     </div>
-    <div class="status" id="status">Ready</div>
+    <div class="head-right">
+      {%- if shared_build %}
+      <button type="button" class="whoami" id="whoami" title="Change who you are">&hellip;</button>
+      {%- endif %}
+      <div class="status" id="status">Ready</div>
+    </div>
   </header>
 
+  {%- if shared_build %}
+  <div id="gate" class="gate">
+    <form class="gate-card" id="gateForm">
+      <h2>Who is entering data?</h2>
+      <p class="muted">Your name is shown next to the records you change, so the team can see who did what.</p>
+      <label for="gateName">Your name</label>
+      <input id="gateName" autocomplete="name" placeholder="e.g. Ali" maxlength="40" required>
+      <button class="primary" type="submit">Continue</button>
+    </form>
+  </div>
+  {%- endif %}
+
+  {%- if shared_build %}
+  <section class="card upload">
+    <div class="upload-copy">
+      <h2>1. Choose the shared file</h2>
+      <p class="muted" id="fileInfo">Everyone works on the same file. Changes appear for the others within a couple of seconds.</p>
+      <div id="sheetList" class="sheet-list"><div class="empty">Loading files&hellip;</div></div>
+    </div>
+    <div class="upload-actions">
+      <label class="filebox"><input id="file" type="file" accept=".xlsx,.xlsm"><span>Upload a new file</span></label>
+      <button id="newBtn" class="ghost" type="button">Start a blank file</button>
+      <a id="gridLink" class="ghost linkbtn hidden" href="#">Full page view &rarr;</a>
+    </div>
+  </section>
+  {%- else %}
   <section class="card upload">
     <div class="upload-copy">
       <h2>1. Load your file</h2>
@@ -27,6 +58,7 @@
     <label class="filebox"><input id="file" type="file" accept=".xlsx,.xlsm"><span>Choose Excel file</span></label>
     <button id="newBtn" class="ghost" type="button">Start new file</button>
   </section>
+  {%- endif %}
 
   <section class="grid">
 
@@ -51,6 +83,19 @@
       </div>
 
       <div id="banner" class="banner hidden"></div>
+      {%- if shared_build %}
+      <div id="conflict" class="conflict hidden">
+        <p class="conflict-head" id="conflictHead"></p>
+        <div class="conflict-cols">
+          <div><b>Their version (saved)</b><dl id="conflictTheirs"></dl></div>
+          <div><b>Your version (not saved)</b><dl id="conflictMine"></dl></div>
+        </div>
+        <div class="conflict-actions">
+          <button type="button" class="ghost" id="takeTheirs">Use their version</button>
+          <button type="button" class="primary" id="keepMine">Overwrite with mine</button>
+        </div>
+      </div>
+      {%- endif %}
 
       <form id="form" class="form" autocomplete="off" novalidate>
         {%- for f in fields %}
@@ -102,7 +147,12 @@
 </div>
 <div id="toast" class="toast hidden"></div>
 <script>window.PARCEL_UI = {{ ui_config | tojson }};</script>
-{%- if static_build %}
+{%- if shared_build %}
+{#- Shared build: the server owns the workbook, so no Excel engine is needed here. -#}
+<script src="app.js"></script>
+<script src="shared.js"></script>
+{%- elif static_build %}
+{#- Offline build: the whole workbook is handled in this tab. -#}
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="schema.js"></script>
 <script src="engine.js"></script>

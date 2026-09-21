@@ -13,10 +13,10 @@
   "wide_fields": ["name"],
 
   "_sticky_comment": "Enumerator details do not change from record to record, so they are carried over when the form is cleared for a new entry.",
-  "sticky_fields": ["first_name", "username", "designation"],
+  "sticky_fields": ["block_id", "first_name", "username", "designation"],
 
   "_option_comment": "Offered as a dropdown built from the values already present in the loaded file. One distinct value -> filled in automatically; several -> a picker.",
-  "option_fields": ["first_name", "username", "designation"],
+  "option_fields": ["block_id", "first_name", "username", "designation"],
 
   "_choice_comment": "Fixed dropdowns. A value already in the sheet that is not listed here is added to the dropdown when that record is opened, so old rows are never silently changed.",
   "choice_fields": { "comment": ["Add", "Delete"] },

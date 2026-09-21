@@ -20,10 +20,19 @@ var state = {
   timer: null,
   results: [],
   options: {},       // {first_name: [...]} values already used in the file
-  prefixes: {}       // {house_code: '318468'} shared leading digits
+  prefixes: {},      // {house_code: '318468'} shared leading digits
+  // shared mode only
+  user: '',          // who is entering data
+  sheetId: '',       // which server-held file is open
+  rev: 0,            // sheet revision the cache is current to
+  baseRev: null,     // revision of the record in the form, for conflict checks
+  pending: null,     // record awaiting a conflict decision
+  poll: null
 };
 
 var UI = window.PARCEL_UI || {};
+var MODE = UI.mode || 'local';          // 'local' = offline build, 'shared' = Netlify server
+var SHARED = MODE === 'shared';
 var SEARCH_FIELDS = UI.search_fields || ['parcel', 'cnic', 'house_code', 'name'];
 var MAX_RESULTS = UI.max_results || 50;
 var STICKY_FIELDS = UI.sticky_fields || [];
@@ -33,6 +42,16 @@ var PREFIX_FIELDS = UI.prefix_fields || [];
 var OTHER = '\u0000other';   // sentinel option value, cannot collide with real data
 
 var $ = function (id) { return document.getElementById(id); };
+
+/* Hooks the shared (Netlify) build fills in. shared.js loads after this file
+ * and replaces these declarations; in the offline build they stay no-ops so
+ * the single-user path never has to know about servers or conflicts. */
+function adoptSheet() {}
+function refreshSheetList() {}
+function showConflict(data) { toast(data && data.error ? data.error : 'Edit conflict.', 'error'); }
+function hideConflict() {}
+function ago() { return ''; }
+function startPolling() {}
 var inputs = function () { return Array.prototype.slice.call(document.querySelectorAll('[data-k]')); };
 
 /* ------------------------------------------------------------------- api */
@@ -63,15 +82,57 @@ async function postJSON(url, body) {
 
 var engine = function () { return window.ParcelEngine; };
 
+/* REST helper for shared mode. Every call carries the user's name so the
+ * server can record who changed what. */
+async function rest(method, path, body) {
+  var init = { method: method, headers: { 'x-parcel-user': state.user || 'Someone' } };
+  if (body !== undefined) {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(Object.assign({ by: state.user }, body));
+  }
+  var res;
+  try { res = await fetch(path, init); }
+  catch (e) { throw new Error('Cannot reach the server. Check your connection.'); }
+  var text = await res.text();
+  var data = {};
+  try { data = text ? JSON.parse(text) : {}; }
+  catch (e) { throw new Error('Unexpected server response (' + res.status + ').'); }
+  if (!res.ok) {
+    var err = new Error(data.error || 'Request failed (' + res.status + ').');
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
 var api = {
-  load: function (b64) {
+  /* local mode: parse a workbook the browser holds.
+     shared mode: upload it, creating a file everyone can open. */
+  load: function (b64, name) {
+    if (SHARED) return rest('POST', '/api/sheets', { workbook: b64, name: name });
     return engine() ? engine().load(b64) : postJSON('/api/load', { workbook: b64 });
   },
   save: function (b64, record, row) {
+    if (SHARED) {
+      return row === null || row === undefined
+        ? rest('POST', '/api/sheets/' + state.sheetId + '/records', { record: record })
+        : rest('PUT', '/api/sheets/' + state.sheetId + '/records/' + row,
+               { record: record, baseRev: state.baseRev });
+    }
     return engine() ? engine().save(b64, record, row)
                     : postJSON('/api/save', { workbook: b64, record: record, row: row });
   },
   download: async function (b64, macro) {
+    if (SHARED) {
+      var r = await fetch('/api/sheets/' + state.sheetId + '/export');
+      if (!r.ok) {
+        var e = {};
+        try { e = await r.json(); } catch (x) {}
+        throw new Error(e.error || 'Download failed.');
+      }
+      return r.blob();
+    }
     if (engine()) return engine().download(b64, macro);
     var res = await fetch('/api/download', {
       method: 'POST',
@@ -84,6 +145,12 @@ var api = {
       throw new Error(d.error || 'Download failed.');
     }
     return res.blob();
+  },
+  listSheets: function () { return rest('GET', '/api/sheets'); },
+  openSheet: function (id) { return rest('GET', '/api/sheets/' + id); },
+  blankSheet: function (name) { return rest('POST', '/api/sheets', { name: name }); },
+  changes: function (id, since) {
+    return rest('GET', '/api/sheets/' + id + '/changes?since=' + (since || 0));
   }
 };
 
@@ -242,10 +309,14 @@ function collect() {
 
 function editRecord(rec) {
   state.row = rec.row;
+  state.baseRev = rec.rev === undefined ? null : rec.rev;
+  hideConflict();
   fillForm(rec);
   $('mode').textContent = 'Editing row ' + rec.row + ' · P/S ' + (rec.parcel || '—');
   $('save').textContent = 'Update record';
-  setBanner('Editing an existing record (row ' + rec.row + '). Saving overwrites that row.', 'edit');
+  setBanner('Editing row ' + rec.row + '. Saving overwrites that row' +
+    (SHARED && rec.updatedBy ? ' · last saved by ' + rec.updatedBy + ' ' + ago(rec.updatedAt) : '') +
+    '.', 'edit');
   markActive(rec.row);
   setStatus('Record loaded');
   if (window.matchMedia('(max-width: 850px)').matches) {
@@ -257,6 +328,8 @@ function editRecord(rec) {
 
 function newRecord(keep) {
   state.row = null;
+  state.baseRev = null;
+  hideConflict();
   fillForm(keep === undefined ? carryOver() : keep);
   $('mode').textContent = 'New record';
   $('save').textContent = 'Save record';
@@ -279,26 +352,38 @@ function markActive(row) {
   });
 }
 
+/* In shared mode a poll re-runs the search every couple of seconds. Rewriting
+ * innerHTML each time would destroy and rebuild the buttons under the user's
+ * finger, which can swallow a tap, so the DOM is only touched when the markup
+ * actually differs. */
+var lastResultsHtml = null;
+function paintResults(html) {
+  var el = $('results');
+  if (html !== lastResultsHtml) {
+    el.innerHTML = html;
+    lastResultsHtml = html;
+  }
+}
+
 function renderResults(matches, query) {
   state.results = matches;
-  var el = $('results');
   if (!query) {
-    el.innerHTML = '<div class="empty">' + (state.records.length
+    paintResults('<div class="empty">' + (state.records.length
       ? 'Type a P/S, CNIC, H/S Code or Name to search ' + state.records.length + ' record(s).'
-      : 'Load an Excel file to begin searching.') + '</div>';
+      : 'Load an Excel file to begin searching.') + '</div>');
     return;
   }
   if (!matches.length) {
-    el.innerHTML = '<div class="empty">No matching record. Fill the form and Save to add it as a new record.</div>';
+    paintResults('<div class="empty">No matching record. Fill the form and Save to add it as a new record.</div>');
     return;
   }
-  el.innerHTML = matches.map(function (m, i) {
+  paintResults(matches.map(function (m, i) {
     return '<button type="button" class="result" data-row="' + m.row + '" data-i="' + i + '">' +
       '<b>' + esc(m.parcel || '—') + ' · ' + esc(m.name || 'Unnamed') + '</b>' +
       '<span>CNIC: ' + esc(m.cnic || '—') + ' &nbsp;|&nbsp; H/S: ' + esc(m.house_code || '—') +
       ' &nbsp;|&nbsp; Row ' + m.row + '</span>' +
       '<em>Tap to edit</em></button>';
-  }).join('');
+  }).join(''));
   markActive(state.row);
 }
 
@@ -377,8 +462,9 @@ $('file').addEventListener('change', async function (e) {
   setStatus('Reading file…');
   try {
     var b64 = toBase64(await f.arrayBuffer());
-    var d = await api.load(b64);
-    state.workbook = b64;
+    var d = await api.load(b64, f.name.replace(/\.(xlsx|xlsm)$/i, ''));
+    state.workbook = SHARED ? '' : b64;
+    if (SHARED) { adoptSheet(d); }
     state.records = d.records || [];
     state.macro = !!d.macro;
     state.fileName = f.name;
@@ -386,6 +472,7 @@ $('file').addEventListener('change', async function (e) {
     applyFieldOptions(d.options);
     $('fileInfo').textContent = f.name + ' · ' + state.records.length +
       ' record(s) · header row ' + d.header_row;
+    if (SHARED) { refreshSheetList(); }
     $('search').disabled = false;
     $('search').value = '';
     newRecord();
@@ -435,8 +522,8 @@ $('save').addEventListener('click', async function () {
   setStatus('Saving…');
   try {
     var d = await api.save(state.workbook, rec, state.row);
-    state.workbook = d.workbook;
-    state.macro = !!d.macro;
+    if (!SHARED) { state.workbook = d.workbook; state.macro = !!d.macro; }
+    if (SHARED && d.rev) { state.rev = d.rev; }
     upsertCache(d.record);
     editRecord(d.record);
     $('fileInfo').textContent = (state.fileName || 'New workbook') + ' · ' +
@@ -444,11 +531,15 @@ $('save').addEventListener('click', async function () {
     $('search').disabled = false;
     if ($('search').value.trim()) runSearch();
     setStatus(d.action === 'added' ? 'Record added' : 'Record updated');
+    var atRow = d.record ? d.record.row : d.row;
     toast(d.action === 'added'
-      ? 'New record added at row ' + d.row + '.'
-      : 'Row ' + d.row + ' updated.', 'ok');
+      ? 'New record added at row ' + atRow + '.'
+      : 'Row ' + atRow + ' updated.', 'ok');
   } catch (err) {
-    if (err.status === 409 && err.data && err.data.duplicate) {
+    if (err.status === 409 && err.data && err.data.conflict) {
+      setStatus('Someone else edited this');
+      showConflict(err.data, rec);
+    } else if (err.status === 409 && err.data && err.data.duplicate) {
       setStatus('Duplicate P/S');
       if (window.confirm(err.data.error + '\n\nOpen the existing record now?')) {
         var existing = err.data.record;
@@ -473,8 +564,19 @@ $('clear').addEventListener('click', function () {
   setStatus('Ready');
 });
 
-$('newBtn').addEventListener('click', function () {
+$('newBtn').addEventListener('click', async function () {
   if (state.dirty && !window.confirm('Discard unsaved changes and start a new file?')) return;
+  if (SHARED) {
+    var suggested = window.prompt('Name for the new shared file:', 'Parcel mapping');
+    if (suggested === null) return;
+    setStatus('Creating…');
+    try {
+      adoptSheet(await api.blankSheet(suggested.trim() || 'Parcel mapping'));
+      refreshSheetList();
+      toast('Blank file created. Everyone on the team can now open it.', 'ok');
+    } catch (e) { setStatus('Could not create'); toast(e.message, 'error'); }
+    return;
+  }
   state.workbook = ''; state.records = []; state.macro = false; state.fileName = '';
   state.prefixes = {};
   applyFieldOptions({});
@@ -511,7 +613,9 @@ document.addEventListener('input', function (e) {
 });
 
 window.addEventListener('beforeunload', function (e) {
-  if (state.dirty || state.workbook) { e.preventDefault(); e.returnValue = ''; }
+  // In shared mode everything saved is already on the server; only warn about
+  // a half-typed record. In local mode the whole workbook is only in this tab.
+  if (state.dirty || (!SHARED && state.workbook)) { e.preventDefault(); e.returnValue = ''; }
 });
 
 newRecord({});

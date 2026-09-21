@@ -6,6 +6,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
+# Node / Netlify
+node_modules/
+.netlify/
+
 # Editors / OS
 .vscode/
 .idea/
@@ -16,3 +20,9 @@ Thumbs.db
 *.xlsx
 *.xlsm
 !docs/sample-parcel-mapping.xlsx
+
+# Local Netlify folder
+.netlify
+
+# Netlify CLI artifact (edge functions are not used)
+deno.lock

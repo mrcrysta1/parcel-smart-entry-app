@@ -35,7 +35,7 @@ PREFIX_FIELDS = SCHEMA['prefix_fields']
 # Config the browser needs; injected into the page by index() / build_static.py.
 UI_CONFIG = {k: SCHEMA[k] for k in (
     'search_fields', 'sticky_fields', 'option_fields', 'choice_fields',
-    'prefix_fields', 'max_results')}
+    'prefix_fields', 'max_results', 'form_order', 'labels', 'fields')}
 
 XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 XLSM_MIME = 'application/vnd.ms-excel.sheet.macroEnabled.12'

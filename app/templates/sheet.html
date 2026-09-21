@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parcel Sheet &mdash; full view</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 10h16M8 16h16M8 22h10' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="grid-page">
+
+<div id="gate" class="gate">
+  <form class="gate-card" id="gateForm">
+    <h2>Who is entering data?</h2>
+    <p class="muted">Your name is shown next to the records you change.</p>
+    <label for="gateName">Your name</label>
+    <input id="gateName" autocomplete="name" placeholder="e.g. Ali" maxlength="40" required>
+    <button class="primary" type="submit">Continue</button>
+  </form>
+</div>
+
+<header class="grid-bar">
+  <div class="grid-title">
+    <a class="back" href="index.html" id="backLink" title="Back to data entry">&larr;</a>
+    <div>
+      <h1 id="sheetName">Loading&hellip;</h1>
+      <p class="muted" id="sheetMeta">&nbsp;</p>
+    </div>
+  </div>
+  <div class="grid-tools">
+    <input id="filter" class="search" placeholder="Filter records&hellip;" autocomplete="off" spellcheck="false">
+    <button type="button" class="ghost" id="addRow">Add record</button>
+    <button type="button" class="ghost" id="download">Download Excel</button>
+    <button type="button" class="whoami" id="whoami">&hellip;</button>
+    <div class="status" id="status">Connecting&hellip;</div>
+  </div>
+</header>
+
+<main class="grid-wrap">
+  <table class="dgrid" id="grid">
+    <thead id="gridHead"></thead>
+    <tbody id="gridBody"></tbody>
+  </table>
+  <div class="grid-empty" id="gridEmpty">Loading records&hellip;</div>
+</main>
+
+<p class="grid-foot">
+  Click any cell to edit it. Changes save as soon as you leave the cell and appear
+  for everyone else within a couple of seconds. A row another person just changed
+  flashes, and if you both edit the same cell you will be asked which version to keep.
+</p>
+
+<div id="toast" class="toast hidden"></div>
+<script>window.PARCEL_UI = {{ ui_config | tojson }};</script>
+<script src="sheet.js"></script>
+</body>
+</html>
