@@ -18,11 +18,19 @@ var state = {
   macro: false,
   dirty: false,
   timer: null,
-  results: []
+  results: [],
+  options: {},       // {first_name: [...]} values already used in the file
+  prefixes: {}       // {house_code: '318468'} shared leading digits
 };
 
-var SEARCH_FIELDS = ['parcel', 'cnic', 'house_code', 'name'];
-var MAX_RESULTS = 50;
+var UI = window.PARCEL_UI || {};
+var SEARCH_FIELDS = UI.search_fields || ['parcel', 'cnic', 'house_code', 'name'];
+var MAX_RESULTS = UI.max_results || 50;
+var STICKY_FIELDS = UI.sticky_fields || [];
+var OPTION_FIELDS = UI.option_fields || [];
+var CHOICE_FIELDS = UI.choice_fields || {};
+var PREFIX_FIELDS = UI.prefix_fields || [];
+var OTHER = '\u0000other';   // sentinel option value, cannot collide with real data
 
 var $ = function (id) { return document.getElementById(id); };
 var inputs = function () { return Array.prototype.slice.call(document.querySelectorAll('[data-k]')); };
@@ -103,19 +111,132 @@ function setBanner(text, kind) {
   el.textContent = text;
 }
 
+/* --------------------------------------------------------------- controls */
+/* Some fields are plain inputs, some are dropdowns built from the values the
+ * loaded file already uses. Both carry data-k, so collect()/fillForm() treat
+ * them identically. */
+
+function control(field) { return document.getElementById('f-' + field); }
+
+function optionEl(value, text) {
+  var o = document.createElement('option');
+  o.value = value;
+  o.textContent = text === undefined ? value : text;
+  return o;
+}
+
+// A select can only hold values it lists, so a value coming from the sheet
+// that is not among the choices is added rather than silently dropped.
+function ensureOption(sel, value) {
+  if (!value) return;
+  var has = Array.prototype.some.call(sel.options, function (o) { return o.value === value; });
+  if (has) return;
+  var other = Array.prototype.filter.call(sel.options, function (o) { return o.value === OTHER; })[0];
+  sel.insertBefore(optionEl(value), other || null);
+}
+
+function setFieldValue(el, v) {
+  v = (v === undefined || v === null) ? '' : String(v);
+  if (el.tagName === 'SELECT') ensureOption(el, v);
+  el.value = v;
+}
+
+function attrsFor(field) {
+  if (field === 'property_type') return { list: 'propertyTypes' };
+  if (field === 'latitude' || field === 'longitude') return { inputmode: 'decimal' };
+  if (field === 'cnic' || field === 'parcel' || field === 'house_code') return { inputmode: 'numeric' };
+  return {};
+}
+
+function replaceControl(field, el) {
+  var old = control(field);
+  if (!old) return null;
+  el.id = old.id;
+  el.name = field;
+  el.dataset.k = field;
+  old.parentNode.replaceChild(el, old);
+  return el;
+}
+
+function makeInput(field, value) {
+  var el = document.createElement('input');
+  el.type = 'text';
+  var a = attrsFor(field);
+  Object.keys(a).forEach(function (k) { el.setAttribute(k, a[k]); });
+  replaceControl(field, el);
+  el.value = value || '';
+  return el;
+}
+
+function makeSelect(field, options, value) {
+  var el = document.createElement('select');
+  el.appendChild(optionEl('', '— choose —'));
+  options.forEach(function (v) { el.appendChild(optionEl(v)); });
+  el.appendChild(optionEl(OTHER, 'Other…'));
+  replaceControl(field, el);
+  setFieldValue(el, value || '');
+  return el;
+}
+
+// "Other..." turns the dropdown back into a free-text box, so a name that is
+// not in the file yet can still be entered.
+document.addEventListener('change', function (e) {
+  var el = e.target;
+  if (!el || !el.dataset || !el.dataset.k || el.value !== OTHER) return;
+  var field = el.dataset.k;
+  makeInput(field, '').focus();
+  setDirty(true);
+});
+
+/* Rebuild the enumerator dropdowns for a newly loaded file. One distinct value
+ * in the column is filled in automatically; several become a picker. */
+function applyFieldOptions(options) {
+  state.options = options || {};
+  OPTION_FIELDS.forEach(function (f) {
+    var opts = state.options[f] || [];
+    if (opts.length >= 2) makeSelect(f, opts, '');
+    else makeInput(f, opts.length === 1 ? opts[0] : '');
+  });
+  // Reset fixed dropdowns so values carried over from a previous file go away.
+  Object.keys(CHOICE_FIELDS).forEach(function (f) {
+    var el = control(f);
+    if (el && el.tagName === 'SELECT') {
+      el.innerHTML = '';
+      el.appendChild(optionEl('', '— choose —'));
+      CHOICE_FIELDS[f].forEach(function (v) { el.appendChild(optionEl(v)); });
+    }
+  });
+}
+
+/* Values that carry over to the next record: the enumerator's own details,
+ * plus the shared leading digits of the house code. */
+function carryOver() {
+  var out = {};
+  STICKY_FIELDS.forEach(function (f) {
+    var el = control(f);
+    var v = el ? el.value : '';
+    if (v && v !== OTHER) out[f] = v;
+    else if ((state.options[f] || []).length === 1) out[f] = state.options[f][0];
+  });
+  PREFIX_FIELDS.forEach(function (f) {
+    if (state.prefixes[f]) out[f] = state.prefixes[f];
+  });
+  return out;
+}
+
 /* ------------------------------------------------------------------ form */
 function fillForm(rec) {
   rec = rec || {};
-  inputs().forEach(function (i) {
-    var v = rec[i.dataset.k];
-    i.value = (v === undefined || v === null) ? '' : String(v);
-  });
+  inputs().forEach(function (i) { setFieldValue(i, rec[i.dataset.k]); });
   setDirty(false);
 }
 
 function collect() {
   var r = {};
-  inputs().forEach(function (i) { r[i.dataset.k] = i.value.trim(); });
+  inputs().forEach(function (i) {
+    var v = i.value === OTHER ? '' : i.value;   // sentinel is never real data
+    r[i.dataset.k] = v.trim();
+  });
   return r;
 }
 
@@ -136,7 +257,7 @@ function editRecord(rec) {
 
 function newRecord(keep) {
   state.row = null;
-  fillForm(keep || {});
+  fillForm(keep === undefined ? carryOver() : keep);
   $('mode').textContent = 'New record';
   $('save').textContent = 'Save record';
   setBanner(state.workbook || state.records.length
@@ -261,11 +382,13 @@ $('file').addEventListener('change', async function (e) {
     state.records = d.records || [];
     state.macro = !!d.macro;
     state.fileName = f.name;
+    state.prefixes = d.prefixes || {};
+    applyFieldOptions(d.options);
     $('fileInfo').textContent = f.name + ' · ' + state.records.length +
       ' record(s) · header row ' + d.header_row;
     $('search').disabled = false;
     $('search').value = '';
-    newRecord({});
+    newRecord();
     renderResults([], '');
     setStatus(d.message || 'Excel loaded');
     if (d.missing && d.missing.length) {
@@ -346,13 +469,15 @@ $('save').addEventListener('click', async function () {
 
 $('clear').addEventListener('click', function () {
   if (state.dirty && !window.confirm('Discard unsaved changes?')) return;
-  newRecord({});
+  newRecord();
   setStatus('Ready');
 });
 
 $('newBtn').addEventListener('click', function () {
   if (state.dirty && !window.confirm('Discard unsaved changes and start a new file?')) return;
   state.workbook = ''; state.records = []; state.macro = false; state.fileName = '';
+  state.prefixes = {};
+  applyFieldOptions({});
   $('fileInfo').textContent = 'New file — a fresh proforma workbook is created on first save.';
   $('search').value = '';
   $('search').disabled = false;

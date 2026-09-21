@@ -50,6 +50,20 @@ python build_static.py    # regenerates docs/ ; commit and push to publish
 - P/S + Name are mandatory. Duplicate P/S numbers are refused, with an offer to
   open the existing record instead.
 - Blank optional fields become `Nill`; blank Property Type becomes `Other`.
+
+### Fields that repeat across a file
+- **First Name, Username, Designation** are read from the file you load. One
+  distinct value in the column is filled in automatically; several become a
+  dropdown of exactly those values. Whatever is set carries over to the next
+  record, so the enumerator's details are entered once, not once per row.
+  `Other…` in the dropdown turns it back into a text box for a new name.
+- **House Code** — the leading digits shared by every house code in the file are
+  detected and pre-filled, so only the digits that differ are typed. (With
+  `31846856`, `31846857`, `31846858` in the file, a new record starts at
+  `3184685`.) Fewer than two all-digit codes means no prefix is inferred.
+- **Comment** is a dropdown of **Add** / **Delete**. A comment already in the
+  sheet that is neither of those is added to the dropdown when that record is
+  opened, so existing rows are never silently rewritten.
 - With no file loaded, the app creates a fresh workbook in the proforma layout.
 - Saved/added rows are highlighted yellow in the exported workbook. Existing
   formatting — bold headers, column widths, freeze panes — is preserved.

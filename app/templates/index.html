@@ -54,12 +54,21 @@
 
       <form id="form" class="form" autocomplete="off" novalidate>
         {%- for f in fields %}
-        <div class="field{% if f in wide %} full{% endif %}">
+        <div class="field{% if f in wide %} full{% endif %}" data-field="{{ f }}">
           <label for="f-{{ f }}">{{ labels[f] }}{% if f in required %} <span class="req">*</span>{% endif %}</label>
+          {%- if f in choices %}
+          <select id="f-{{ f }}" name="{{ f }}" data-k="{{ f }}">
+            <option value="">&mdash; choose &mdash;</option>
+            {%- for o in choices[f] %}
+            <option value="{{ o }}">{{ o }}</option>
+            {%- endfor %}
+          </select>
+          {%- else %}
           <input id="f-{{ f }}" name="{{ f }}" data-k="{{ f }}" type="text"
                  {%- if f == 'property_type' %} list="propertyTypes"{% endif %}
                  {%- if f in ('latitude', 'longitude') %} inputmode="decimal"{% endif %}
                  {%- if f in ('cnic', 'parcel', 'house_code') %} inputmode="numeric"{% endif %}>
+          {%- endif %}
         </div>
         {%- endfor %}
       </form>
@@ -92,6 +101,7 @@
 
 </div>
 <div id="toast" class="toast hidden"></div>
+<script>window.PARCEL_UI = {{ ui_config | tojson }};</script>
 {%- if static_build %}
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="schema.js"></script>

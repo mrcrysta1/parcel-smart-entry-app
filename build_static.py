@@ -20,7 +20,8 @@ def main():
     DOCS.mkdir(exist_ok=True)
 
     from app import create_app
-    from app.routes import FORM_ORDER, LABELS, REQUIRED_FIELDS, WIDE_FIELDS, PROPERTY_TYPES
+    from app.routes import (FORM_ORDER, LABELS, REQUIRED_FIELDS, WIDE_FIELDS,
+                            PROPERTY_TYPES, CHOICE_FIELDS, UI_CONFIG)
 
     app = create_app()
     with app.app_context():
@@ -29,6 +30,7 @@ def main():
             'index.html',
             fields=FORM_ORDER, labels=LABELS, required=REQUIRED_FIELDS,
             wide=WIDE_FIELDS, property_types=PROPERTY_TYPES,
+            choices=CHOICE_FIELDS, ui_config=UI_CONFIG,
             static_build=True,
         )
     (DOCS / 'index.html').write_text(html, encoding='utf-8')

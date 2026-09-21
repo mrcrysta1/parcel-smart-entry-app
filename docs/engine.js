@@ -167,6 +167,57 @@ window.ParcelEngine = (function () {
     return out;
   }
 
+  var PLACEHOLDERS = (S.placeholder_values || []).map(norm);
+
+  /* Distinct values already used in the file, most common first. The
+   * enumerator's details repeat on every row, so offering what the file
+   * already contains saves retyping them. 'Nill' and friends are filler
+   * written by applyDefaults, never real choices. (Mirrors routes.py.) */
+  function fieldOptions(records, limit) {
+    limit = limit || 60;
+    var out = {};
+    (S.option_fields || []).forEach(function (f) {
+      var counts = {}, order = [];
+      records.forEach(function (r) {
+        var v = String(r[f] === undefined || r[f] === null ? '' : r[f]).trim();
+        if (!v || PLACEHOLDERS.indexOf(norm(v)) >= 0) return;
+        if (!(v in counts)) { counts[v] = 0; order.push(v); }
+        counts[v]++;
+      });
+      order.sort(function (a, b) {
+        return counts[b] - counts[a] || a.toLowerCase().localeCompare(b.toLowerCase());
+      });
+      out[f] = order.slice(0, limit);
+    });
+    return out;
+  }
+
+  /* Longest run of leading digits shared by every numeric value. House codes
+   * in one file share a prefix and differ only at the end, so the shared part
+   * can be pre-filled. At least two distinct all-digit values are required
+   * before a prefix means anything. (Mirrors routes.py.) */
+  function commonPrefix(values) {
+    var seen = {}, vals = [];
+    values.forEach(function (v) {
+      var s = String(v === undefined || v === null ? '' : v).trim();
+      if (!/^\d+$/.test(s) || seen[s]) return;
+      seen[s] = 1; vals.push(s);
+    });
+    if (vals.length < 2) return '';
+    vals.sort();
+    var first = vals[0], last = vals[vals.length - 1], i = 0;
+    while (i < Math.min(first.length, last.length) && first[i] === last[i]) i++;
+    return first.slice(0, i);
+  }
+
+  function fieldPrefixes(records) {
+    var out = {};
+    (S.prefix_fields || []).forEach(function (f) {
+      out[f] = commonPrefix(records.map(function (r) { return r[f]; }));
+    });
+    return out;
+  }
+
   function applyDefaults(raw) {
     var rec = {};
     FIELDS.forEach(function (f) {
@@ -246,6 +297,8 @@ window.ParcelEngine = (function () {
     Object.keys(h.cols).forEach(function (f) { columns[f] = colLetter(h.cols[f]); });
     return {
       records: records,
+      options: fieldOptions(records),
+      prefixes: fieldPrefixes(records),
       header_row: h.row,
       sheet: ws.name,
       columns: columns,

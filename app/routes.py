@@ -27,6 +27,15 @@ PROPERTY_TYPES = SCHEMA['property_types']
 _FLOAT_FIELDS = set(SCHEMA['float_fields'])
 HIGHLIGHT_ARGB = SCHEMA['highlight_argb']
 MAX_RESULTS = SCHEMA['max_results']
+STICKY_FIELDS = SCHEMA['sticky_fields']
+OPTION_FIELDS = SCHEMA['option_fields']
+CHOICE_FIELDS = SCHEMA['choice_fields']
+PREFIX_FIELDS = SCHEMA['prefix_fields']
+
+# Config the browser needs; injected into the page by index() / build_static.py.
+UI_CONFIG = {k: SCHEMA[k] for k in (
+    'search_fields', 'sticky_fields', 'option_fields', 'choice_fields',
+    'prefix_fields', 'max_results')}
 
 XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 XLSM_MIME = 'application/vnd.ms-excel.sheet.macroEnabled.12'
@@ -175,6 +184,50 @@ def search_records(records, q, limit=MAX_RESULTS):
     return [r for _, _, r in scored[:limit]]
 
 
+_PLACEHOLDERS = {norm(v) for v in SCHEMA['placeholder_values']}
+
+
+def field_options(records, limit=60):
+    """Distinct values already used in the file, most common first.
+
+    The enumerator's own details repeat on every row, so offering the values
+    the file already contains saves retyping them. 'Nill' and friends are
+    filler written by apply_defaults, never real choices.
+    """
+    out = {}
+    for f in OPTION_FIELDS:
+        counts = {}
+        for r in records:
+            v = str(r.get(f, '') or '').strip()
+            if not v or norm(v) in _PLACEHOLDERS:
+                continue
+            counts[v] = counts.get(v, 0) + 1
+        out[f] = [v for v, _ in sorted(counts.items(),
+                                       key=lambda kv: (-kv[1], kv[0].lower()))][:limit]
+    return out
+
+
+def common_prefix(values):
+    """Longest run of leading digits shared by every numeric value given.
+
+    House codes within one file share a prefix and differ only in the last
+    digits, so the shared part can be pre-filled. Only all-digit values count,
+    and at least two distinct ones are needed before a prefix means anything.
+    """
+    vals = sorted({s for s in (str(v or '').strip() for v in values) if s.isdigit()})
+    if len(vals) < 2:
+        return ''
+    first, last = vals[0], vals[-1]          # LCP of a sorted set == LCP(first, last)
+    i = 0
+    while i < min(len(first), len(last)) and first[i] == last[i]:
+        i += 1
+    return first[:i]
+
+
+def field_prefixes(records):
+    return {f: common_prefix([r.get(f, '') for r in records]) for f in PREFIX_FIELDS}
+
+
 def apply_defaults(rec):
     """Blank optional fields -> 'Nill'; blank Property Type -> 'Other'."""
     rec = {f: ('' if rec.get(f) is None else str(rec.get(f, '')).strip()) for f in FIELDS}
@@ -234,8 +287,11 @@ def load_state(b64):
 
 
 def sheet_payload(wb, ws, hr, cols):
+    records = read_records(ws, hr, cols)
     return {
-        'records': read_records(ws, hr, cols),
+        'records': records,
+        'options': field_options(records),
+        'prefixes': field_prefixes(records),
         'header_row': hr,
         'sheet': ws.title,
         'columns': {f: get_column_letter(c) for f, c in cols.items()},
@@ -250,7 +306,8 @@ def sheet_payload(wb, ws, hr, cols):
 def index():
     return render_template('index.html', fields=FORM_ORDER, labels=LABELS,
                            required=REQUIRED_FIELDS, wide=WIDE_FIELDS,
-                           property_types=PROPERTY_TYPES)
+                           property_types=PROPERTY_TYPES, choices=CHOICE_FIELDS,
+                           ui_config=UI_CONFIG)
 
 
 @bp.post('/api/load')

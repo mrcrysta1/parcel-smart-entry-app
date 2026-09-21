@@ -39,8 +39,39 @@ window.PARCEL_SCHEMA = {
     "designation"
   ],
   "wide_fields": [
-    "name",
-    "comment"
+    "name"
+  ],
+  "_sticky_comment": "Enumerator details do not change from record to record, so they are carried over when the form is cleared for a new entry.",
+  "sticky_fields": [
+    "first_name",
+    "username",
+    "designation"
+  ],
+  "_option_comment": "Offered as a dropdown built from the values already present in the loaded file. One distinct value -> filled in automatically; several -> a picker.",
+  "option_fields": [
+    "first_name",
+    "username",
+    "designation"
+  ],
+  "_choice_comment": "Fixed dropdowns. A value already in the sheet that is not listed here is added to the dropdown when that record is opened, so old rows are never silently changed.",
+  "choice_fields": {
+    "comment": [
+      "Add",
+      "Delete"
+    ]
+  },
+  "_prefix_comment": "House codes in one file share a leading run of digits; it is detected and pre-filled so only the differing digits are typed.",
+  "prefix_fields": [
+    "house_code"
+  ],
+  "_placeholder_comment": "Never offered as a dropdown option (compared after normalising).",
+  "placeholder_values": [
+    "Nill",
+    "Null",
+    "NA",
+    "N/A",
+    "-",
+    "--"
   ],
   "labels": {
     "parcel": "P/S / Parcel Number",

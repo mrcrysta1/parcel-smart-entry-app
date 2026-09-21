@@ -53,51 +53,55 @@
       <div id="banner" class="banner hidden"></div>
 
       <form id="form" class="form" autocomplete="off" novalidate>
-        <div class="field">
+        <div class="field" data-field="parcel">
           <label for="f-parcel">P/S / Parcel Number <span class="req">*</span></label>
           <input id="f-parcel" name="parcel" data-k="parcel" type="text" inputmode="numeric">
         </div>
-        <div class="field full">
+        <div class="field full" data-field="name">
           <label for="f-name">Name <span class="req">*</span></label>
           <input id="f-name" name="name" data-k="name" type="text">
         </div>
-        <div class="field">
+        <div class="field" data-field="cnic">
           <label for="f-cnic">CNIC</label>
           <input id="f-cnic" name="cnic" data-k="cnic" type="text" inputmode="numeric">
         </div>
-        <div class="field">
+        <div class="field" data-field="house_code">
           <label for="f-house_code">H/S Code / House Code</label>
           <input id="f-house_code" name="house_code" data-k="house_code" type="text" inputmode="numeric">
         </div>
-        <div class="field">
+        <div class="field" data-field="property_type">
           <label for="f-property_type">Property Type</label>
           <input id="f-property_type" name="property_type" data-k="property_type" type="text" list="propertyTypes">
         </div>
-        <div class="field">
+        <div class="field" data-field="latitude">
           <label for="f-latitude">Latitude</label>
           <input id="f-latitude" name="latitude" data-k="latitude" type="text" inputmode="decimal">
         </div>
-        <div class="field">
+        <div class="field" data-field="longitude">
           <label for="f-longitude">Longitude</label>
           <input id="f-longitude" name="longitude" data-k="longitude" type="text" inputmode="decimal">
         </div>
-        <div class="field full">
+        <div class="field" data-field="comment">
           <label for="f-comment">Comment</label>
-          <input id="f-comment" name="comment" data-k="comment" type="text">
+          <select id="f-comment" name="comment" data-k="comment">
+            <option value="">&mdash; choose &mdash;</option>
+            <option value="Add">Add</option>
+            <option value="Delete">Delete</option>
+          </select>
         </div>
-        <div class="field">
+        <div class="field" data-field="block_id">
           <label for="f-block_id">Block ID</label>
           <input id="f-block_id" name="block_id" data-k="block_id" type="text">
         </div>
-        <div class="field">
+        <div class="field" data-field="first_name">
           <label for="f-first_name">First Name</label>
           <input id="f-first_name" name="first_name" data-k="first_name" type="text">
         </div>
-        <div class="field">
+        <div class="field" data-field="username">
           <label for="f-username">Username</label>
           <input id="f-username" name="username" data-k="username" type="text">
         </div>
-        <div class="field">
+        <div class="field" data-field="designation">
           <label for="f-designation">Designation</label>
           <input id="f-designation" name="designation" data-k="designation" type="text">
         </div>
@@ -128,6 +132,7 @@
 
 </div>
 <div id="toast" class="toast hidden"></div>
+<script>window.PARCEL_UI = {"choice_fields": {"comment": ["Add", "Delete"]}, "max_results": 50, "option_fields": ["first_name", "username", "designation"], "prefix_fields": ["house_code"], "search_fields": ["parcel", "cnic", "house_code", "name"], "sticky_fields": ["first_name", "username", "designation"]};</script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="schema.js"></script>
 <script src="engine.js"></script>
